@@ -166,6 +166,8 @@ int main() {
     //Shader ourShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
     Shader shader("resources/shaders/floor.vs", "resources/shaders/floor.fs");
     Shader lightCubeShader("resources/shaders/light_cube.vs", "resources/shaders/light_cube.fs");
+    Shader modelShader("", "");
+
 
     float cubeVertices[] = {
             -0.5f, -0.5f, -0.5f,
