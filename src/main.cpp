@@ -36,7 +36,7 @@ float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
 
-glm::vec3 lightPos(0.15f, 7.0f, -0.9f);
+glm::vec3 lightPos(0.0f, 3.0f, 0.0f);
 // timing
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
@@ -163,12 +163,13 @@ int main() {
 
     // build and compile shaders
     // -------------------------
-    //Shader ourShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
     Shader shader("resources/shaders/floor.vs", "resources/shaders/floor.fs");
     Shader lightCubeShader("resources/shaders/light_cube.vs", "resources/shaders/light_cube.fs");
-    Shader modelShader("", "");
+    Shader modelShader("resources/shaders/model_loading.vs","resources/shaders/model_loading.fs");
 
 
+    // set up vertex data (and buffer(s)) and configure vertex attributes
+    // ------------------------------------------------------------------
     float cubeVertices[] = {
             -0.5f, -0.5f, -0.5f,
             0.5f, -0.5f, -0.5f,
@@ -213,14 +214,13 @@ int main() {
             -0.5f,  0.5f, -0.5f,
     };
 
-    // set up vertex data (and buffer(s)) and configure vertex attributes
-    // ------------------------------------------------------------------
+
     float planeVertices[] = {
-            // positions          // texture Coords (note we set these higher than 1 (together with GL_REPEAT as texture wrapping mode). this will cause the floor texture to repeat)
-            5.0f, -0.5f,  5.0f,  2.0f, 0.0f,
-            -5.0f, -0.5f,  5.0f,  0.0f, 0.0f,
-            -5.0f, -0.5f, -5.0f,  0.0f, 2.0f,
-            5.0f, -0.5f, -5.0f,  2.0f, 2.0f
+            // positions                        // texture Coords (note we set these higher than 1 (together with GL_REPEAT as texture wrapping mode). this will cause the floor texture to repeat)
+            5.0f, -0.5f,  5.0f,  0.0f, 1.0f, 0.0f,  1.0f, 0.0f,
+            -5.0f, -0.5f, 5.0f,  0.0f, 1.0f, 0.0f,  0.0f, 0.0f,
+            -5.0f,-0.5f,-5.0f,   0.0f, 1.0f, 0.0f,  0.0f, 1.0f,
+            5.0f, -0.5f, -5.0f,  0.0f, 1.0f, 0.0f,  1.0f, 1.0f
     };
     unsigned int indices[] = {
             0,1,2, // first triangle
@@ -230,8 +230,6 @@ int main() {
     glGenVertexArrays(1, &lightCubeVAO);
     glGenBuffers(1, &VBO);
     glBindVertexArray(lightCubeVAO);
-
-    glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertices), cubeVertices, GL_STATIC_DRAW);
 
     // we only need to bind to the VBO (to link it with glVertexAttribPointer), no need to fill it; the VBO's data already contains all we need (it's already bound, but we do it again for educational purposes)
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
@@ -251,33 +249,37 @@ int main() {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, planeEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+
+
     glBindVertexArray(0);
 
     // load textures
-    unsigned int floorTexture = loadTexture(FileSystem::getPath("resources/textures/metal.png").c_str());
+    unsigned int floorTexture = loadTexture(FileSystem::getPath("resources/textures/grass-texture-background.jpg").c_str());
     shader.use();
-    shader.setInt("texture1", 0);
+    shader.setInt("material.diffuse", 0);
 
 
     // load models
     // -----------
-//    Model ourModel("resources/objects/1967-shelby-ford-mustang-obj/1967-shelby-ford-mustang.obj");
-//    ourModel.SetShaderTextureNamePrefix("material.");
-//
-//    PointLight& pointLight = programState->pointLight;
-//    pointLight.position = glm::vec3(4.0f, 4.0, 0.0);
-//    pointLight.ambient = glm::vec3(0.1, 0.1, 0.1);
-//    pointLight.diffuse = glm::vec3(0.6, 0.6, 0.6);
-//    pointLight.specular = glm::vec3(1.0, 1.0, 1.0);
-//
-//    pointLight.constant = 1.0f;
-//    pointLight.linear = 0.09f;
-//    pointLight.quadratic = 0.032f;
+    Model modelCar("resources/objects/formula 1/Formula 1 mesh.obj");
+    modelCar.SetShaderTextureNamePrefix("material.");
 
+
+    PointLight& pointLight = programState->pointLight;
+    pointLight.position = glm::vec3(4.0f, 4.0, 0.0);
+    pointLight.ambient = glm::vec3(0.1, 0.1, 0.1);
+    pointLight.diffuse = glm::vec3(0.6, 0.6, 0.6);
+    pointLight.specular = glm::vec3(1.0, 1.0, 1.0);
+
+    pointLight.constant = 1.0f;
+    pointLight.linear = 0.09f;
+    pointLight.quadratic = 0.032f;
 
 
     // draw in wireframe
@@ -302,20 +304,36 @@ int main() {
         glClearColor(programState->clearColor.r, programState->clearColor.g, programState->clearColor.b, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        shader.use();
         glm::mat4 model = glm::mat4(1.0f);
         glm::mat4 view = programState->camera.GetViewMatrix();
         glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-        shader.setMat4("view", view);
-        shader.setMat4("projection", projection);
+
 
         // floor
+        shader.use();
+        shader.setVec3("light.position", lightPos);
+        shader.setVec3("viewPos", camera.Position);
+        // light properties
+        shader.setVec3("light.ambient", 0.2f, 0.2f, 0.2f);
+        shader.setVec3("light.diffuse", 0.5f, 0.5f, 0.5f);
+        shader.setVec3("light.specular", .0f, 1.0f, 1.0f);
+        // material properties
+        shader.setVec3("material.specular", 0.01f, 0.01f, 0.01f);
+        shader.setFloat("material.shininess", 256.0f);
+        // modeling
+        shader.setMat4("view", view);
+        shader.setMat4("projection", projection);
+        shader.setMat4("model", glm::mat4(1.0f));
+        
         glBindVertexArray(planeVAO);
         glBindTexture(GL_TEXTURE_2D, floorTexture);
-        shader.setMat4("model", glm::mat4(1.0f));
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
 
+
+
+        lightPos= glm::vec3(4.0 * cos(currentFrame), 4.0f, 4.0 * sin(currentFrame));
+        // light cube
         lightCubeShader.use();
         lightCubeShader.setMat4("projection", projection);
         lightCubeShader.setMat4("view", view);
@@ -323,41 +341,35 @@ int main() {
         model = glm::translate(model, lightPos);
         model = glm::scale(model, glm::vec3(0.2f)); // a smaller cube
         lightCubeShader.setMat4("model", model);
-
         glBindVertexArray(lightCubeVAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
 
-//        ourShader.use();
-//        glBindVertexArray(VAO);
-//        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-//
-//        // don't forget to enable shader before setting uniforms
-//        ourShader.use();
-//        pointLight.position = glm::vec3(4.0 * cos(currentFrame), 4.0f, 4.0 * sin(currentFrame));
-//        ourShader.setVec3("pointLight.position", pointLight.position);
-//        ourShader.setVec3("pointLight.ambient", pointLight.ambient);
-//        ourShader.setVec3("pointLight.diffuse", pointLight.diffuse);
-//        ourShader.setVec3("pointLight.specular", pointLight.specular);
-//        ourShader.setFloat("pointLight.constant", pointLight.constant);
-//        ourShader.setFloat("pointLight.linear", pointLight.linear);
-//        ourShader.setFloat("pointLight.quadratic", pointLight.quadratic);
-//        ourShader.setVec3("viewPosition", programState->camera.Position);
-//        ourShader.setFloat("material.shininess", 32.0f);
-//        // view/projection transformations
-//        glm::mat4 projection = glm::perspective(glm::radians(programState->camera.Zoom),
-//                                                (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f, 100.0f);
-//        glm::mat4 view = programState->camera.GetViewMatrix();
-//        ourShader.setMat4("projection", projection);
-//        ourShader.setMat4("view", view);
-//
-//        // render the loaded model
-//        glm::mat4 model = glm::mat4(1.0f);
-//        model = glm::translate(model,
-//                               programState->backpackPosition); // translate it down so it's at the center of the scene
-//        model = glm::scale(model, glm::vec3(programState->backpackScale));    // it's a bit too big for our scene, so scale it down
-//        ourShader.setMat4("model", model);
-//        ourModel.Draw(ourShader);
+
+        modelShader.use();
+        pointLight.position = glm::vec3(4.0 * cos(currentFrame), 4.0f, 4.0 * sin(currentFrame));
+        modelShader.setVec3("pointLight.position", pointLight.position);
+        modelShader.setVec3("pointLight.ambient", pointLight.ambient);
+        modelShader.setVec3("pointLight.diffuse", pointLight.diffuse);
+        modelShader.setVec3("pointLight.specular", pointLight.specular);
+        modelShader.setFloat("pointLight.constant", pointLight.constant);
+        modelShader.setFloat("pointLight.linear", pointLight.linear);
+        modelShader.setFloat("pointLight.quadratic", pointLight.quadratic);
+        modelShader.setVec3("viewPosition", programState->camera.Position);
+        modelShader.setFloat("material.shininess", 32.0f);
+        // view/projection transformations
+        modelShader.setMat4("projection", projection);
+        modelShader.setMat4("view", view);
+
+        // render the loaded model
+        model = glm::mat4(1.0f);
+        model = glm::translate(model,
+                               programState->backpackPosition); // translate it down so it's at the center of the scene
+        model = glm::scale(model, glm::vec3(0.01f));    // it's a bit too big for our scene, so scale it down
+        modelShader.setMat4("model", model);
+        modelCar.Draw(modelShader);
+
+
 
         if (programState->ImGuiEnabled)
             DrawImGui(programState);
