@@ -31,7 +31,6 @@ const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 
 // camera
-Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
@@ -57,8 +56,8 @@ struct ProgramState {
     bool ImGuiEnabled = false;
     Camera camera;
     bool CameraMouseMovementUpdateEnabled = true;
-    glm::vec3 backpackPosition = glm::vec3(0.0f);
-    float backpackScale = 1.0f;
+    glm::vec3 F1Position = glm::vec3(0.0f, -0.5f, 0.0f);
+    float F1Scale = 1.0f;
     PointLight pointLight;
     ProgramState()
             : camera(glm::vec3(0.0f, 0.0f, 3.0f)) {}
@@ -103,6 +102,11 @@ ProgramState *programState;
 void DrawImGui(ProgramState *programState);
 unsigned int loadTexture(char const * path);
 
+float RandomNumber(float Min, float Max)
+{
+    return ((float(rand()) / float(RAND_MAX)) * (Max - Min)) + Min;
+}
+
 int main() {
     // glfw: initialize and configure
     // ------------------------------
@@ -117,7 +121,7 @@ int main() {
 
     // glfw window creation
     // --------------------
-    GLFWwindow *window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, NULL);
+    GLFWwindow *window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Kicanovic", NULL, NULL);
     if (window == NULL) {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
@@ -138,8 +142,6 @@ int main() {
         return -1;
     }
 
-    // tell stb_image.h to flip loaded texture's on the y-axis (before loading model).
-    //stbi_set_flip_vertically_on_load(true);
 
     programState = new ProgramState;
     programState->LoadFromFile("resources/program_state.txt");
@@ -163,10 +165,10 @@ int main() {
 
     // build and compile shaders
     // -------------------------
-    Shader shader("resources/shaders/floor.vs", "resources/shaders/floor.fs");
+    Shader floorShader("resources/shaders/floor.vs", "resources/shaders/floor.fs");
     Shader lightCubeShader("resources/shaders/light_cube.vs", "resources/shaders/light_cube.fs");
     Shader modelShader("resources/shaders/model_loading.vs","resources/shaders/model_loading.fs");
-
+    Shader treeShader("resources/shaders/tree_shader.vs", "resources/shaders/tree_shader.fs");
 
     // set up vertex data (and buffer(s)) and configure vertex attributes
     // ------------------------------------------------------------------
@@ -214,13 +216,24 @@ int main() {
             -0.5f,  0.5f, -0.5f,
     };
 
+    float transparentVertices[] = {
+            // positions         // texture Coords (swapped y coordinates because texture is flipped upside down)
+            0.0f,  0.5f,  0.0f,  0.0f,  0.0f,
+            0.0f, -0.5f,  0.0f,  0.0f,  1.0f,
+            1.0f, -0.5f,  0.0f,  1.0f,  1.0f,
+
+            0.0f,  0.5f,  0.0f,  0.0f,  0.0f,
+            1.0f, -0.5f,  0.0f,  1.0f,  1.0f,
+            1.0f,  0.5f,  0.0f,  1.0f,  0.0f
+    };
+
 
     float planeVertices[] = {
-            // positions                        // texture Coords (note we set these higher than 1 (together with GL_REPEAT as texture wrapping mode). this will cause the floor texture to repeat)
-            5.0f, -0.5f,  5.0f,  0.0f, 1.0f, 0.0f,  1.0f, 0.0f,
-            -5.0f, -0.5f, 5.0f,  0.0f, 1.0f, 0.0f,  0.0f, 0.0f,
-            -5.0f,-0.5f,-5.0f,   0.0f, 1.0f, 0.0f,  0.0f, 1.0f,
-            5.0f, -0.5f, -5.0f,  0.0f, 1.0f, 0.0f,  1.0f, 1.0f
+            // positions                            // texture Coords (note we set these higher than 1 (together with GL_REPEAT as texture wrapping mode). this will cause the floor texture to repeat)
+            5.1f, -0.5f,  5.1f,  0.0f, 1.0f, 0.0f,  1.0f, 0.0f,
+            -5.1f, -0.5f, 5.1f,  0.0f, 1.0f, 0.0f,  0.0f, 0.0f,
+            -5.1f,-0.5f,-5.1f,   0.0f, 1.0f, 0.0f,  0.0f, 1.0f,
+            5.1f, -0.5f, -5.1f,  0.0f, 1.0f, 0.0f,  1.0f, 1.0f
     };
     unsigned int indices[] = {
             0,1,2, // first triangle
@@ -255,14 +268,27 @@ int main() {
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
     glEnableVertexAttribArray(2);
+    glBindVertexArray(0);
 
-
+    // grass
+    unsigned int transparentVAO, transparentVBO;
+    glGenVertexArrays(1, &transparentVAO);
+    glGenBuffers(1, &transparentVBO);
+    glBindVertexArray(transparentVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, transparentVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(transparentVertices), transparentVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
     glBindVertexArray(0);
 
     // load textures
     unsigned int floorTexture = loadTexture(FileSystem::getPath("resources/textures/grass-texture-background.jpg").c_str());
-    shader.use();
-    shader.setInt("material.diffuse", 0);
+    unsigned int transparentTexture = loadTexture(FileSystem::getPath("resources/textures/grass.png").c_str());
+
+    floorShader.use();
+    floorShader.setInt("material.diffuse", 0);
 
 
     // load models
@@ -273,7 +299,7 @@ int main() {
 
     PointLight& pointLight = programState->pointLight;
     pointLight.position = glm::vec3(4.0f, 4.0, 0.0);
-    pointLight.ambient = glm::vec3(0.1, 0.1, 0.1);
+    pointLight.ambient = glm::vec3(0.4, 0.4, 0.4);
     pointLight.diffuse = glm::vec3(0.6, 0.6, 0.6);
     pointLight.specular = glm::vec3(1.0, 1.0, 1.0);
 
@@ -282,9 +308,14 @@ int main() {
     pointLight.quadratic = 0.032f;
 
 
-    // draw in wireframe
-    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    vector<glm::vec3> vegetation;
+    for(int i=0; i < 200 ; i++){
+        vegetation.push_back(glm::vec3(RandomNumber(-1.0,1.0)*5,-0.4f, RandomNumber(-1.0,0.95)*5));
+    }
 
+
+    ;
+    treeShader.setInt("texture1", 0);
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window)) {
@@ -306,24 +337,40 @@ int main() {
 
         glm::mat4 model = glm::mat4(1.0f);
         glm::mat4 view = programState->camera.GetViewMatrix();
-        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+        glm::mat4 projection = glm::perspective(glm::radians(programState->camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
 
+        treeShader.use();
+        glBindVertexArray(transparentVAO);
+        glActiveTexture(GL_TEXTURE0);
+
+        glBindTexture(GL_TEXTURE_2D, transparentTexture);
+        for (unsigned int i = 0; i < vegetation.size(); i++)
+        {
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, vegetation[i]);
+            model = glm::rotate(model, float(glm::radians(90.0f)), glm::vec3(0.0f,1.0f,0.0f));
+            model = glm::scale(model, glm::vec3(0.2f));
+            treeShader.setMat4("projection", projection);
+            treeShader.setMat4("view", view);
+            treeShader.setMat4("model", model);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+        }
 
         // floor
-        shader.use();
-        shader.setVec3("light.position", lightPos);
-        shader.setVec3("viewPos", camera.Position);
+        floorShader.use();
+        floorShader.setVec3("light.position", lightPos);
+        floorShader.setVec3("viewPos", programState->camera.Position);
         // light properties
-        shader.setVec3("light.ambient", 0.2f, 0.2f, 0.2f);
-        shader.setVec3("light.diffuse", 0.5f, 0.5f, 0.5f);
-        shader.setVec3("light.specular", .0f, 1.0f, 1.0f);
+        floorShader.setVec3("light.ambient", 0.2f, 0.2f, 0.2f);
+        floorShader.setVec3("light.diffuse", 0.5f, 0.5f, 0.5f);
+        floorShader.setVec3("light.specular", .0f, 1.0f, 1.0f);
         // material properties
-        shader.setVec3("material.specular", 0.01f, 0.01f, 0.01f);
-        shader.setFloat("material.shininess", 256.0f);
+        floorShader.setVec3("material.specular", 0.01f, 0.01f, 0.01f);
+        floorShader.setFloat("material.shininess", 256.0f);
         // modeling
-        shader.setMat4("view", view);
-        shader.setMat4("projection", projection);
-        shader.setMat4("model", glm::mat4(1.0f));
+        floorShader.setMat4("view", view);
+        floorShader.setMat4("projection", projection);
+        floorShader.setMat4("model", glm::mat4(1.0f));
         
         glBindVertexArray(planeVAO);
         glBindTexture(GL_TEXTURE_2D, floorTexture);
@@ -364,11 +411,10 @@ int main() {
         // render the loaded model
         model = glm::mat4(1.0f);
         model = glm::translate(model,
-                               programState->backpackPosition); // translate it down so it's at the center of the scene
-        model = glm::scale(model, glm::vec3(0.01f));    // it's a bit too big for our scene, so scale it down
+                               programState->F1Position); // translate it down so it's at the center of the scene
+        model = glm::scale(model, glm::vec3(0.005f));    // it's a bit too big for our scene, so scale it down
         modelShader.setMat4("model", model);
         modelCar.Draw(modelShader);
-
 
 
         if (programState->ImGuiEnabled)
@@ -410,6 +456,13 @@ void processInput(GLFWwindow *window) {
         programState->camera.ProcessKeyboard(LEFT, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         programState->camera.ProcessKeyboard(RIGHT, deltaTime);
+
+
+    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+        programState->F1Position += glm::vec3(-1.0f, 0.0f, 0.0f) * 2.5f * deltaTime;
+    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+        programState->F1Position += glm::vec3(1.0f, 0.0f, 0.0f) * 2.5f * deltaTime;
+
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
@@ -457,8 +510,8 @@ void DrawImGui(ProgramState *programState) {
         ImGui::Text("Hello text");
         ImGui::SliderFloat("Float slider", &f, 0.0, 1.0);
         ImGui::ColorEdit3("Background color", (float *) &programState->clearColor);
-        ImGui::DragFloat3("Backpack position", (float*)&programState->backpackPosition);
-        ImGui::DragFloat("Backpack scale", &programState->backpackScale, 0.05, 0.1, 4.0);
+        ImGui::DragFloat3("Backpack position", (float*)&programState->F1Position);
+        ImGui::DragFloat("Backpack scale", &programState->F1Scale, 0.05, 0.1, 4.0);
 
         ImGui::DragFloat("pointLight.constant", &programState->pointLight.constant, 0.05, 0.0, 1.0);
         ImGui::DragFloat("pointLight.linear", &programState->pointLight.linear, 0.05, 0.0, 1.0);
@@ -491,7 +544,6 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
         }
     }
 }
-
 unsigned int loadTexture(char const * path)
 {
     unsigned int textureID;
@@ -513,8 +565,8 @@ unsigned int loadTexture(char const * path)
         glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, format == GL_RGBA ? GL_CLAMP_TO_EDGE : GL_REPEAT); // for this tutorial: use GL_CLAMP_TO_EDGE to prevent semi-transparent borders. Due to interpolation it takes texels from next repeat
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, format == GL_RGBA ? GL_CLAMP_TO_EDGE : GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
