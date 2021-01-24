@@ -3,9 +3,9 @@
 newmtl Mat
 Ka 1 1 1
 Kd 0.80000001192093 0.80000001192093 0.80000001192093
-map_Kd formula1_DefaultMaterial_Diffuse.png
+map_Kd diffuse.png
 Ks 1 1 1
-map_Ks formula1_DefaultMaterial_Specular.png
+map_Ks specular.png
 Ns 50
 illum 7
 

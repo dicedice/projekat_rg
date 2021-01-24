@@ -356,6 +356,9 @@ int main() {
             glDrawArrays(GL_TRIANGLES, 0, 6);
         }
 
+
+        // CHECKED
+        //-------------------------------------------------------------
         // floor
         floorShader.use();
         floorShader.setVec3("light.position", lightPos);
@@ -376,25 +379,28 @@ int main() {
         glBindTexture(GL_TEXTURE_2D, floorTexture);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
+        //-------------------------------------------------------------
 
 
-
-        lightPos= glm::vec3(4.0 * cos(currentFrame), 4.0f, 4.0 * sin(currentFrame));
+        // CHECKED
+        //----------------------------------------------------------------
         // light cube
         lightCubeShader.use();
         lightCubeShader.setMat4("projection", projection);
         lightCubeShader.setMat4("view", view);
+        lightPos= glm::vec3(4.0 * cos(currentFrame), 3.0f, 4.0 * sin(currentFrame));
         model = glm::mat4(1.0f);
         model = glm::translate(model, lightPos);
-        model = glm::scale(model, glm::vec3(0.2f)); // a smaller cube
+        model = glm::scale(model, glm::vec3(0.2f));
         lightCubeShader.setMat4("model", model);
         glBindVertexArray(lightCubeVAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
+        //----------------------------------------------------------------
 
 
 
         modelShader.use();
-        pointLight.position = glm::vec3(4.0 * cos(currentFrame), 4.0f, 4.0 * sin(currentFrame));
+        pointLight.position = lightPos;
         modelShader.setVec3("pointLight.position", pointLight.position);
         modelShader.setVec3("pointLight.ambient", pointLight.ambient);
         modelShader.setVec3("pointLight.diffuse", pointLight.diffuse);
